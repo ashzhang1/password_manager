@@ -50,7 +50,7 @@ def add_new_login_record(cur, conn):
         print("ERROR - Could not insert new record....")
         return False
 
-def get_new_choice(cur, conn, choice, application_name):
+def get_new_choice(choice, application_name):
     user_confirmed = False
 
     while user_confirmed == False:
@@ -77,8 +77,11 @@ def get_new_choice(cur, conn, choice, application_name):
     return new_choice
     
 
-def get_current_username(cur, conn, application_name):
-    query = f"select login_username from password_manager.login_details where application_name ilike '{application_name}';"
+def get_current_login(cur, conn, application_name, choice):
+    if choice == 'username':
+        query = f"select login_username from password_manager.login_details where application_name ilike '{application_name}';"
+    elif choice == 'password':
+        query = f"select login_password from password_manager.login_details where application_name ilike '{application_name}';"
     try:
         cur.execute(query)
         result = cur.fetchone()[0]
@@ -112,13 +115,20 @@ def edit_login_record(cur, conn):
             print("======================================")
             print("============ EDIT USERNAME ===========")
             print("======================================")
-            current_username = get_current_username(cur, conn, application_name)
+            current_username = get_current_login(cur, conn, application_name, 'username')
             print(f"The current username for {application_name} is: {current_username}")
-            new_choice = get_new_choice(cur, conn, 'u', application_name)
+            new_choice = get_new_choice('u', application_name)
             user_confirmed = True
             break
         elif user_choice == 'p':
-            pass
+            print("======================================")
+            print("============ EDIT PASSWORD ===========")
+            print("======================================")
+            current_password = get_current_login(cur, conn, application_name, 'password')
+            print(f"The current password for {application_name} is: {current_password}")
+            new_choice = get_new_choice('p', application_name)
+            user_confirmed = True
+            break
         else:
             print("invalid choice...")
     
