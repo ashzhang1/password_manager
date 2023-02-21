@@ -145,6 +145,62 @@ def edit_login_record(cur, conn):
         print(Error)
         return False
 
+def verify_login_exists(cur, conn, application_name):
+    query = f"select application_name from password_manager.login_details where application_name = '{application_name}';"
+    try:
+        cur.execute(query)
+        conn.commit()
+        result = cur.fetchone()[0]
+        if str(result) == application_name:
+            return True
+        else:
+            return False
+    except (Exception, psycopg2.Error) as error:
+        print(error)
+        return False
+
+
+def fetch_login_details(cur, conn):
+    print("======================================")
+    print("======== Fetch Login Details =========")
+    print("======================================")
+    user_confirmed = False
+
+    while user_confirmed == False:
+        application_name = str(input("For which application would you like your login details to: "))
+
+        user_choice = str(input("Confirm the above information correct: (y/n) "))
+        verification = verify_login_exists(cur, conn, application_name)
+        if user_choice == 'y' and verification == True:
+                user_confirmed = True
+                break
+        elif user_choice == 'n':
+            user_confirmed = False
+        elif verification == False:
+            print("Invalid choice...")
+    
+    print("======================================")
+    print("========= Login Details for: =========")
+    print(f"{application_name}")
+    username_query = f"select login_username from password_manager.login_details where application_name = '{application_name}';"
+    password_query = f"select login_password from password_manager.login_details where application_name = '{application_name}';"
+    try:
+        cur.execute(username_query)
+        conn.commit()
+        username_db = cur.fetchone()[0]
+        print(f"username: {username_db}")
+
+        cur.execute(password_query)
+        conn.commit()
+        password_db = cur.fetchone()[0]
+        print(f"password: {password_db}")
+
+        print("======================================")
+        return True
+    except (Exception, psycopg2.Error) as error:
+        print(error)
+        return False
+
 def display_menu():
     print("======================================")
     print("================ Menu ================")
@@ -180,7 +236,8 @@ def initiate_menu(cur, conn):
         add_new_login_record(cur, conn)
         return True
     elif users_choice == '2':
-        pass
+        fetch_login_details(cur, conn)
+        return True
     elif users_choice == '3':
         edit_login_record(cur, conn)
         return True
