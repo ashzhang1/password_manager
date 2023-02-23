@@ -1,5 +1,6 @@
 import psycopg2
 import maskpass
+from cryptography.fernet import Fernet
 
 def add_new_login_record(cur, conn):
     print("======================================")
@@ -41,6 +42,8 @@ def add_new_login_record(cur, conn):
     print("======================================")
     print(f"Adding new login credentials for {application_name}...")
     try:
+        #ADD PASSWORD ENCRYPTION
+        elected_password = symmetric_key.encrypt(elected_password.encode()).decode()
         cur.execute(f"insert into password_manager.login_details values ('{application_name}', '{elected_username}', '{elected_password}');")
         conn.commit()
         print(f"Success - Completed adding login credentials for {application_name}")
@@ -81,11 +84,14 @@ def get_current_login(cur, conn, application_name, choice):
     if choice == 'username':
         query = f"select login_username from password_manager.login_details where application_name ilike '{application_name}';"
     elif choice == 'password':
+        #ADD PASSWORD DECRYPTION
         query = f"select login_password from password_manager.login_details where application_name ilike '{application_name}';"
     try:
         cur.execute(query)
         result = cur.fetchone()[0]
         conn.commit()
+        if choice == 'password':
+            result = symmetric_key.decrypt(result).decode()
         return result
     except (Exception, psycopg2.Error) as Error:
         print(Error)
@@ -136,6 +142,8 @@ def edit_login_record(cur, conn):
         if user_choice == 'u':
             query = f"update password_manager.login_details set login_username = '{new_choice}' where application_name = '{application_name}';"
         elif user_choice == 'p':
+            #ADD PASSWORD ENCRYPTION
+            new_choice = symmetric_key.encrypt(new_choice.encode()).decode()
             query = f"update password_manager.login_details set login_password = '{new_choice}' where application_name = '{application_name}';"
         cur.execute(query)
         conn.commit()
@@ -183,6 +191,7 @@ def fetch_login_details(cur, conn):
     print("========= Login Details for: =========")
     print(f"{application_name}")
     username_query = f"select login_username from password_manager.login_details where application_name = '{application_name}';"
+    #ADD PASSWORD DECRYPTION
     password_query = f"select login_password from password_manager.login_details where application_name = '{application_name}';"
     try:
         cur.execute(username_query)
@@ -193,6 +202,7 @@ def fetch_login_details(cur, conn):
         cur.execute(password_query)
         conn.commit()
         password_db = cur.fetchone()[0]
+        password_db = symmetric_key.decrypt(password_db).decode()
         print(f"password: {password_db}")
 
         print("======================================")
@@ -220,10 +230,16 @@ def display_menu():
         print("INVALID CHOICE - try again...")
 
 def verify_master_password(cur, conn, master_password):
+    file = open('master_key.key', 'rb')
+    key = file.read()
+    file.close()
+    f = Fernet(key)
+
     cur.execute("select login_password from password_manager.login_details where application_name = 'master_password';")
     conn.commit()
-    master_passsword_db = cur.fetchone()
-    if master_password != master_passsword_db[0]:
+    master_passsword_db = cur.fetchone()[0]
+    master_passsword_db = f.decrypt(master_passsword_db).decode()
+    if master_password != master_passsword_db:
         print("login incorrect...")
         return False
     else:
@@ -245,6 +261,14 @@ def initiate_menu(cur, conn):
         print("Thank-you - Ending Program")
         return False
 
+def read_key():
+    file = open('key.key', 'rb')
+    global symmetric_key
+    key = file.read()
+    symmetric_key = Fernet(key)
+    file.close()
+    return symmetric_key
+
 def initiate_password_manager():
     print("======================================")
     print("========== Password Manager ==========")
@@ -261,6 +285,7 @@ def initiate_password_manager():
 
     continue_flag = True
     if verify_master_password(cur, conn, master_password):
+        read_key()
         while continue_flag == True:
             continue_flag = initiate_menu(cur, conn)
 
